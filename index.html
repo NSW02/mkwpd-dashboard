@@ -928,6 +928,7 @@
 
   /* Floating login button — mobile only (sidebar login is hidden on small screens) */
   .mob-login-fab { display: none; }
+  .mob-pin-fab { display: none; }
 
   /* ─── Mobile breakpoints ─────────────────────── */
   @media (max-width: 1100px) {
@@ -956,6 +957,14 @@
     }
     .mob-login-fab .fab-ic { font-size: 21px; line-height: 1; }
     .mob-login-fab .fab-tx { font-size: 14px; font-weight: 800; }
+    .mob-pin-fab {
+      display: flex; align-items: center; justify-content: center;
+      position: fixed; left: 14px; bottom: 84px; z-index: 60;
+      width: 50px; height: 50px; border: none; cursor: pointer;
+      border-radius: 50%; font-size: 22px; color: #fff;
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 8px 22px rgba(16,185,129,0.45);
+    }
     .row-grid, .row-grid-3, .cash-strip { gap: 12px; margin-bottom: 12px; }
     .kpi-grid { margin-bottom: 12px; }
     .exp-row { grid-template-columns: 80px 1fr 80px; font-size: 12px; }
@@ -4366,7 +4375,7 @@ function ClaimsView() {
 
 
 // ─── Sidebar ──────────────────────────────────────────
-function Sidebar({ active, onSelect, currentUser, onLoginClick, onLogout }) {
+function Sidebar({ active, onSelect, currentUser, onLoginClick, onLogout, onSetPin }) {
   const items = [
     { k: 'finance', label: 'การเงิน',       icon: Icon.wallet },
     { k: 'people',  label: 'บุคคล',         icon: Icon.users },
@@ -4412,6 +4421,7 @@ function Sidebar({ active, onSelect, currentUser, onLoginClick, onLogout }) {
               <div style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nm}</div>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>{role}</div>
             </div>
+            <button onClick={(e) => { e.stopPropagation(); onSetPin && onSetPin(); }} title="ตั้ง/เปลี่ยน PIN" style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '6px 9px', fontSize: 13, cursor: 'pointer', color: 'var(--muted)', flexShrink: 0 }}>🔑</button>
             <button onClick={(e) => { e.stopPropagation(); onLogout && onLogout(); }} title="ออกจากระบบ" style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '6px 11px', fontSize: 12.5, cursor: 'pointer', color: 'var(--muted)', flexShrink: 0 }}>ออก</button>
           </>);
         })() : (<>
@@ -5739,6 +5749,122 @@ function FaceLoginPanel({ employees, modelsReady, onLoggedIn, onCancel }) {
   );
 }
 
+// ─── เข้าระบบด้วย PIN (ทางสำรองเผื่อกล้องใช้ไม่ได้) ───
+function PinLoginPanel({ employees, onLoggedIn, onCancel }) {
+  const [empId, setEmpId] = React.useState('');
+  const [pin, setPin] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+  const sorted = [...(employees || [])].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'th'));
+  const submit = async () => {
+    if (!empId) { setMsg({ t: 'err', m: 'เลือกชื่อของคุณก่อน' }); return; }
+    if (!/^\d{4,8}$/.test(pin)) { setMsg({ t: 'err', m: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }); return; }
+    setBusy(true); setMsg({ t: 'info', m: 'กำลังตรวจสอบ...' });
+    try {
+      const r = await claimsApi({ action: 'verify_pin', empId, pin });
+      if (r.ok) {
+        const emp = (employees || []).find((e) => String(e.id) === String(empId));
+        if (!emp) { setMsg({ t: 'err', m: 'ไม่พบข้อมูลพนักงาน' }); setBusy(false); return; }
+        setCurrentUserSession(emp);
+        setMsg({ t: 'ok', m: '✓ สวัสดี ' + (emp.name || '') });
+        setTimeout(() => { onLoggedIn && onLoggedIn(emp); }, 800);
+      } else if (r.noPin) {
+        setMsg({ t: 'err', m: 'คนนี้ยังไม่ได้ตั้ง PIN — กรุณาเข้าด้วยใบหน้าก่อน แล้วตั้ง PIN ไว้ใช้ครั้งต่อไป' });
+        setBusy(false);
+      } else {
+        setMsg({ t: 'err', m: r.error || 'PIN ไม่ถูกต้อง' });
+        setBusy(false);
+      }
+    } catch (e) { setMsg({ t: 'err', m: 'เชื่อมต่อไม่ได้: ' + e.message }); setBusy(false); }
+  };
+  return (
+    <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40 }}>🔢</div>
+          <h3 style={{ margin: '4px 0 0', color: '#064e3b' }}>เข้าระบบด้วย PIN</h3>
+          <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>ใช้เมื่อกล้องสแกนหน้าใช้ไม่ได้</div>
+        </div>
+        <label>
+          <span style={fLbl}>ชื่อของคุณ</span>
+          <select value={empId} onChange={(e) => setEmpId(e.target.value)} style={fInp}>
+            <option value="">— เลือกชื่อ —</option>
+            {sorted.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span style={fLbl}>PIN (ตัวเลข 4-8 หลัก)</span>
+          <input type="password" inputMode="numeric" autoComplete="off" value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="••••••" style={{ ...fInp, fontSize: 20, letterSpacing: 6, textAlign: 'center' }} />
+        </label>
+        <button onClick={submit} disabled={busy} style={{ padding: '16px', fontSize: 18, fontWeight: 700, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', cursor: busy ? 'wait' : 'pointer' }}>
+          {busy ? '⏳ กำลังตรวจสอบ...' : '🔓 เข้าระบบ'}
+        </button>
+        {msg && <div style={{ padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, textAlign: 'center', background: msg.t === 'ok' ? '#d1fae5' : msg.t === 'info' ? '#dbeafe' : '#fef3c7', color: msg.t === 'ok' ? '#065f46' : msg.t === 'info' ? '#1e40af' : '#92400e' }}>{msg.m}</div>}
+        <button onClick={onCancel} style={{ padding: '9px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>← ยกเลิก</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ตั้ง/เปลี่ยน PIN ของตัวเอง (ต้องล็อกอินด้วยใบหน้าก่อน) ───
+function PinSetupModal({ open, currentUser, onClose }) {
+  const [pin, setPin] = React.useState('');
+  const [pin2, setPin2] = React.useState('');
+  const [oldPin, setOldPin] = React.useState('');
+  const [hasPin, setHasPin] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+  React.useEffect(() => {
+    if (!open || !currentUser) return;
+    setPin(''); setPin2(''); setOldPin(''); setMsg(null); setHasPin(null);
+    claimsApi({ action: 'pin_status' })
+      .then((r) => { setHasPin(!!(r.hasPin && r.hasPin[String(currentUser.empId)])); })
+      .catch(() => setHasPin(false));
+  }, [open, currentUser]);
+  if (!open || !currentUser) return null;
+  const save = async () => {
+    if (!/^\d{4,8}$/.test(pin)) { setMsg({ t: 'err', m: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }); return; }
+    if (pin !== pin2) { setMsg({ t: 'err', m: 'PIN ทั้งสองช่องไม่ตรงกัน' }); return; }
+    if (hasPin && !/^\d{4,8}$/.test(oldPin)) { setMsg({ t: 'err', m: 'กรุณาใส่ PIN เดิม' }); return; }
+    setBusy(true); setMsg({ t: 'info', m: 'กำลังบันทึก...' });
+    try {
+      const body = { action: 'set_pin', empId: currentUser.empId, name: currentUser.name, pin };
+      if (hasPin) body.oldPin = oldPin;
+      const r = await claimsApi(body);
+      if (r.ok) { setMsg({ t: 'ok', m: '✓ ตั้ง PIN เรียบร้อย! ใช้เข้าระบบได้เลย' }); setTimeout(() => onClose && onClose(), 1100); }
+      else { setMsg({ t: 'err', m: r.error || 'ผิดพลาด' }); setBusy(false); }
+    } catch (e) { setMsg({ t: 'err', m: 'เชื่อมต่อไม่ได้: ' + e.message }); setBusy(false); }
+  };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 22, maxWidth: 400, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <h2 style={{ margin: 0, fontSize: 18, color: 'var(--ink)' }}>🔑 {hasPin ? 'เปลี่ยน PIN' : 'ตั้ง PIN'}</h2>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', fontSize: 22, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
+        </div>
+        <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 14 }}>{currentUser.name} · ตั้ง PIN ไว้เข้าระบบเผื่อกล้องใช้ไม่ได้</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {hasPin && (
+            <label><span style={fLbl}>PIN เดิม</span>
+              <input type="password" inputMode="numeric" value={oldPin} onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="••••••" style={{ ...fInp, textAlign: 'center', letterSpacing: 6 }} /></label>
+          )}
+          <label><span style={fLbl}>{hasPin ? 'PIN ใหม่' : 'ตั้ง PIN'} (ตัวเลข 4-8 หลัก)</span>
+            <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="••••••" style={{ ...fInp, textAlign: 'center', letterSpacing: 6 }} /></label>
+          <label><span style={fLbl}>ยืนยัน PIN อีกครั้ง</span>
+            <input type="password" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, '').slice(0, 8))} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} placeholder="••••••" style={{ ...fInp, textAlign: 'center', letterSpacing: 6 }} /></label>
+          <button onClick={save} disabled={busy || hasPin === null} style={{ padding: '14px', fontSize: 16, fontWeight: 700, borderRadius: 10, border: 'none', background: '#10b981', color: '#fff', cursor: busy ? 'wait' : 'pointer' }}>
+            {busy ? '⏳ กำลังบันทึก...' : '💾 บันทึก PIN'}
+          </button>
+          {msg && <div style={{ padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, textAlign: 'center', background: msg.t === 'ok' ? '#d1fae5' : msg.t === 'info' ? '#dbeafe' : '#fef3c7', color: msg.t === 'ok' ? '#065f46' : msg.t === 'info' ? '#1e40af' : '#92400e' }}>{msg.m}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RequestPermissionPanel({ currentUser, onClose }) {
   const [perms, setPerms] = React.useState({ admin: false, finance: false, stock: false, live: false });
   const [submitting, setSubmitting] = React.useState(false);
@@ -6019,6 +6145,7 @@ function LoginModal({ open, onClose }) {
   const [employees, setEmployees] = React.useState([]);
   const [modelsReady, setModelsReady] = React.useState(false);
   const [status, setStatus] = React.useState('');
+  const [mode, setMode] = React.useState('face');
   React.useEffect(function () {
     if (!open) return;
     setStatus('กำลังโหลดระบบ...');
@@ -6030,11 +6157,17 @@ function LoginModal({ open, onClose }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div onClick={function (e) { e.stopPropagation(); }} style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, maxWidth: 920, width: '100%', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 18, color: 'var(--ink)' }}>🔓 เข้าสู่ระบบด้วยใบหน้า</h2>
+          <h2 style={{ margin: 0, fontSize: 18, color: 'var(--ink)' }}>🔓 เข้าสู่ระบบ</h2>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', fontSize: 22, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
         </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, background: 'var(--bg-2)', padding: 4, borderRadius: 12 }}>
+          <button onClick={() => setMode('face')} style={{ flex: 1, padding: '10px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: mode === 'face' ? 'var(--surface)' : 'transparent', color: mode === 'face' ? 'var(--ink)' : 'var(--muted)', boxShadow: mode === 'face' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>👁 สแกนหน้า</button>
+          <button onClick={() => setMode('pin')} style={{ flex: 1, padding: '10px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: mode === 'pin' ? 'var(--surface)' : 'transparent', color: mode === 'pin' ? 'var(--ink)' : 'var(--muted)', boxShadow: mode === 'pin' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>🔢 ใช้ PIN</button>
+        </div>
         {status && <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 10 }}>{status}</div>}
-        <FaceLoginPanel employees={employees} modelsReady={modelsReady} onLoggedIn={onClose} onCancel={onClose} />
+        {mode === 'face'
+          ? <FaceLoginPanel employees={employees} modelsReady={modelsReady} onLoggedIn={onClose} onCancel={onClose} />
+          : <PinLoginPanel employees={employees} onLoggedIn={onClose} onCancel={onClose} />}
       </div>
     </div>
   );
@@ -6050,6 +6183,7 @@ function App() {
   const [activeNav, setActiveNav] = React.useState('finance');
   const currentUser = useCurrentUser();
   const [loginOpen, setLoginOpen] = React.useState(false);
+  const [pinSetupOpen, setPinSetupOpen] = React.useState(false);
   const canFinance = hasPerm(currentUser, 'finance');
   const canStock = hasPerm(currentUser, 'stock');
   const canLive = hasPerm(currentUser, 'live');
@@ -6213,7 +6347,7 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar active={activeNav} onSelect={setActiveNav} currentUser={currentUser} onLoginClick={() => setLoginOpen(true)} onLogout={() => logoutCurrentUser()} />
+      <Sidebar active={activeNav} onSelect={setActiveNav} currentUser={currentUser} onLoginClick={() => setLoginOpen(true)} onLogout={() => logoutCurrentUser()} onSetPin={() => setPinSetupOpen(true)} />
       <main className="main">
         {activeNav === 'finance' && !canFinance && (<LockedView perm="finance" permLabel="หน้าการเงิน" onGoToPeople={() => setActiveNav('people')} onLogin={() => setLoginOpen(true)} />)}
         {activeNav === 'finance' && canFinance && (
@@ -6315,8 +6449,10 @@ function App() {
       />
 
       {!currentUser && <button className="mob-login-fab" onClick={() => setLoginOpen(true)} title="เข้าระบบด้วยใบหน้า"><span className="fab-ic">🔓</span><span className="fab-tx">เข้าระบบ</span></button>}
+      {currentUser && <button className="mob-pin-fab" onClick={() => setPinSetupOpen(true)} title="ตั้ง/เปลี่ยน PIN">🔑</button>}
       <MobileNav active={activeNav} onSelect={setActiveNav} />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      <PinSetupModal open={pinSetupOpen} currentUser={currentUser} onClose={() => setPinSetupOpen(false)} />
 
       <TweaksPanel title="Tweaks">
         <TweakSection label="Theme">
