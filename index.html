@@ -15,7 +15,7 @@
     --bg-2: #e0f2fe;
     --surface: #ffffff;
     --surface-2: #f8fafc;
-    --border: rgba(15, 23, 42, 0.10);h
+    --border: rgba(15, 23, 42, 0.10);
     --border-2: rgba(15, 23, 42, 0.18);
     --ink: #0f172a;
     --ink-2: #334155;
@@ -926,6 +926,9 @@
   .mob-nav a.active { color: var(--tamarind); background: var(--bg-2); }
   .mob-nav a svg { width: 18px; height: 18px; }
 
+  /* Floating login button — mobile only (sidebar login is hidden on small screens) */
+  .mob-login-fab { display: none; }
+
   /* ─── Mobile breakpoints ─────────────────────── */
   @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -943,6 +946,16 @@
     .kpi-grid { gap: 10px; }
     .kpi-value { font-size: 22px; }
     .mob-nav { display: block; }
+    .mob-login-fab {
+      display: flex; align-items: center; gap: 9px;
+      position: fixed; left: 14px; bottom: 84px; z-index: 60;
+      padding: 12px 18px 12px 14px; border: none; cursor: pointer;
+      border-radius: 16px; color: #fff; font-family: inherit;
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      box-shadow: 0 8px 22px rgba(37,99,235,0.45);
+    }
+    .mob-login-fab .fab-ic { font-size: 21px; line-height: 1; }
+    .mob-login-fab .fab-tx { font-size: 14px; font-weight: 800; }
     .row-grid, .row-grid-3, .cash-strip { gap: 12px; margin-bottom: 12px; }
     .kpi-grid { margin-bottom: 12px; }
     .exp-row { grid-template-columns: 80px 1fr 80px; font-size: 12px; }
@@ -5487,7 +5500,7 @@ function LockedView({ perm, permLabel, onGoToPeople, onLogin }) {
       <div className="card" style={{ padding: 48, textAlign: 'center', maxWidth: 480, background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', border: '2px solid #f59e0b44' }}>
         <div style={{ fontSize: 70, marginBottom: 16 }}>🔒</div>
         <h2 style={{ margin: '0 0 12px', color: '#78350f', fontSize: 24 }}>หน้านี้ต้องมีสิทธิ์เข้าถึงเท่านั้น</h2>
-        <div style={{ color: '#92400e', fontSize: 15, lineHeight: 1.7 }}>คุณยังไม่มีสิทธิ์ดู<strong> {permLabel}</strong><br/>กรุณาเข้าสู่ระบบด้วยใบหน้าที่ปุ่ม <strong>แท็บ "บุคคล" ที่แถบด้านล่าง</strong> ↙</div>
+        <div style={{ color: '#92400e', fontSize: 15, lineHeight: 1.7 }}>คุณยังไม่มีสิทธิ์ดู<strong> {permLabel}</strong><br/>กรุณาเข้าสู่ระบบด้วยใบหน้าที่ปุ่ม <strong>มุมล่างซ้าย</strong> ↙</div>
       </div>
     </div>
   );
@@ -6301,6 +6314,7 @@ function App() {
         onExportPublic={onExportPublic}
       />
 
+      {!currentUser && <button className="mob-login-fab" onClick={() => setLoginOpen(true)} title="เข้าระบบด้วยใบหน้า"><span className="fab-ic">🔓</span><span className="fab-tx">เข้าระบบ</span></button>}
       <MobileNav active={activeNav} onSelect={setActiveNav} />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
 
