@@ -5817,13 +5817,37 @@ function PinSetupModal({ open, currentUser, onClose }) {
   const [hasPin, setHasPin] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
+  const isAdmin = !!(currentUser && currentUser.permissions && (currentUser.permissions.owner || currentUser.permissions.admin));
+  const [empList, setEmpList] = React.useState([]);
+  const [resetEmpId, setResetEmpId] = React.useState('');
+  const [adminKey, setAdminKey] = React.useState(() => { try { return localStorage.getItem('mkw_admin_key') || ''; } catch (e) { return ''; } });
+  const [resetBusy, setResetBusy] = React.useState(false);
+  const [resetMsg, setResetMsg] = React.useState(null);
   React.useEffect(() => {
     if (!open || !currentUser) return;
-    setPin(''); setPin2(''); setOldPin(''); setMsg(null); setHasPin(null);
+    setPin(''); setPin2(''); setOldPin(''); setMsg(null); setHasPin(null); setResetEmpId(''); setResetMsg(null);
     claimsApi({ action: 'pin_status' })
       .then((r) => { setHasPin(!!(r.hasPin && r.hasPin[String(currentUser.empId)])); })
       .catch(() => setHasPin(false));
+    if (currentUser.permissions && (currentUser.permissions.owner || currentUser.permissions.admin)) {
+      apiGet('list_employees').then((r) => setEmpList(r.employees || [])).catch(() => {});
+    }
   }, [open, currentUser]);
+  const doReset = async () => {
+    if (!resetEmpId) { setResetMsg({ t: 'err', m: 'เลือกพนักงานที่ลืม PIN ก่อน' }); return; }
+    if (!adminKey) { setResetMsg({ t: 'err', m: 'ใส่รหัส Admin' }); return; }
+    setResetBusy(true); setResetMsg({ t: 'info', m: 'กำลังรีเซ็ต...' });
+    try {
+      const r = await claimsApi({ action: 'reset_pin', empId: resetEmpId, adminKey: adminKey });
+      if (r.ok) {
+        try { localStorage.setItem('mkw_admin_key', adminKey); } catch (e) {}
+        const nm = (empList.find((e) => String(e.id) === String(resetEmpId)) || {}).name || '';
+        setResetMsg({ t: 'ok', m: '✓ รีเซ็ต PIN ของ ' + nm + ' แล้ว — ให้เขาเข้าด้วยใบหน้าแล้วตั้ง PIN ใหม่ได้เลย' });
+        setResetEmpId('');
+      } else { setResetMsg({ t: 'err', m: r.error || 'ผิดพลาด' }); }
+    } catch (e) { setResetMsg({ t: 'err', m: 'เชื่อมต่อไม่ได้: ' + e.message }); }
+    setResetBusy(false);
+  };
   if (!open || !currentUser) return null;
   const save = async () => {
     if (!/^\d{4,8}$/.test(pin)) { setMsg({ t: 'err', m: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }); return; }
@@ -5860,6 +5884,23 @@ function PinSetupModal({ open, currentUser, onClose }) {
           </button>
           {msg && <div style={{ padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, textAlign: 'center', background: msg.t === 'ok' ? '#d1fae5' : msg.t === 'info' ? '#dbeafe' : '#fef3c7', color: msg.t === 'ok' ? '#065f46' : msg.t === 'info' ? '#1e40af' : '#92400e' }}>{msg.m}</div>}
         </div>
+        {isAdmin && (
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px dashed var(--border)' }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15, marginBottom: 2 }}>🛡 รีเซ็ต PIN พนักงาน (Admin)</div>
+            <div style={{ color: 'var(--muted)', fontSize: 12.5, marginBottom: 12 }}>ใช้เมื่อพนักงานลืม PIN — ลบ PIN เก่าให้เขาตั้งใหม่</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <select value={resetEmpId} onChange={(e) => setResetEmpId(e.target.value)} style={fInp}>
+                <option value="">— เลือกพนักงาน —</option>
+                {[...empList].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'th')).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+              <input type="password" value={adminKey} onChange={(e) => setAdminKey(e.target.value)} placeholder="รหัส Admin" style={fInp} />
+              <button onClick={doReset} disabled={resetBusy} style={{ padding: '12px', fontSize: 15, fontWeight: 700, borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', cursor: resetBusy ? 'wait' : 'pointer' }}>
+                {resetBusy ? '⏳ กำลังรีเซ็ต...' : '🗑 รีเซ็ต PIN'}
+              </button>
+              {resetMsg && <div style={{ padding: 11, borderRadius: 10, fontSize: 13.5, fontWeight: 600, textAlign: 'center', background: resetMsg.t === 'ok' ? '#d1fae5' : resetMsg.t === 'info' ? '#dbeafe' : '#fef3c7', color: resetMsg.t === 'ok' ? '#065f46' : resetMsg.t === 'info' ? '#1e40af' : '#92400e' }}>{resetMsg.m}</div>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
