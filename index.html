@@ -4974,7 +4974,8 @@ function RevenueCard({ series, period }) {
 
 // ─── People / HR (ระบบลงเวลาด้วยใบหน้า) ─────────────────────────
 const ATTENDANCE_API = 'https://script.google.com/macros/s/AKfycbxtEYrI-LgsGP3YMEd69BdQuDXDsXFb7LxHsdFdA6-UfuvP-RwxB3vf0ImznEF2q0urfg/exec';
-const FACE_MATCH_THRESHOLD = 0.55;
+const FACE_MATCH_THRESHOLD = 0.48;
+const FACE_MARGIN_MIN = 0.06; // ระยะห่างขั้นต่ำระหว่างคนที่ใกล้สุดกับอันดับ 2 (กันจำผิดคน)
 const FACEAPI_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js';
 const FACEAPI_MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
 const ADMIN_PASSWORD_KEY = 'mkw_admin_pw';
@@ -5002,7 +5003,7 @@ function loadFaceApi() {
 
 async function captureDescriptor(video) {
   const faceapi = window.faceapi;
-  const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+  const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
     .withFaceLandmarks().withFaceDescriptor();
   if (!det) return null;
   return { descriptor: Array.from(det.descriptor), score: det.detection.score };
@@ -5022,14 +5023,25 @@ function avgDescriptor(descs) {
   return out;
 }
 
+function empMinDistance(desc, emp) {
+  // รองรับทั้งใบหน้ารูปเดียว (descriptor) และหลายรูป (descriptors[]) — เลือกระยะที่ใกล้สุด
+  let list = [];
+  if (Array.isArray(emp.descriptors) && emp.descriptors.length) list = emp.descriptors;
+  else if (Array.isArray(emp.descriptor)) list = [emp.descriptor];
+  let min = Infinity;
+  for (const d of list) { if (Array.isArray(d) && d.length) { const e = euclid(desc, d); if (e < min) min = e; } }
+  return min;
+}
 function matchBest(desc, employees) {
-  let best = null;
+  let best = null, second = null;
   for (const emp of employees) {
-    if (!emp.descriptor || !Array.isArray(emp.descriptor)) continue;
     if (emp.status !== 'active') continue;
-    const d = euclid(desc, emp.descriptor);
-    if (best == null || d < best.distance) best = { emp, distance: d };
+    const d = empMinDistance(desc, emp);
+    if (!isFinite(d)) continue;
+    if (best == null || d < best.distance) { second = best; best = { emp, distance: d }; }
+    else if (second == null || d < second.distance) { second = { emp, distance: d }; }
   }
+  if (best) best.margin = second ? (second.distance - best.distance) : 99;
   return best;
 }
 
@@ -5139,6 +5151,10 @@ function ClockPanel({ employees, locations, modelsReady, onLogged, deviceName })
       const best = matchBest(captured.descriptor, employees);
       if (!best || best.distance > FACE_MATCH_THRESHOLD) {
         setMsg({ kind: 'err', text: 'ไม่พบข้อมูลใบหน้านี้ในระบบ' + (best ? ' (ระยะ ' + best.distance.toFixed(2) + ')' : '') });
+        setBusy(false); setType(null); return;
+      }
+      if (best.margin < FACE_MARGIN_MIN) {
+        setMsg({ kind: 'err', text: '⚠️ ใบหน้าใกล้เคียงกับหลายคน — กรุณาสแกนใหม่ (หันหน้าตรง แสงสว่างพอ)' });
         setBusy(false); setType(null); return;
       }
       const confirmed = window.confirm('ยืนยัน: คุณคือ ' + best.emp.name + ' ใช่หรือไม่?\n\nกด ตกลง เพื่อบันทึกการลงเวลา\nกด ยกเลิก ถ้าไม่ใช่');
@@ -5736,6 +5752,7 @@ function FaceLoginPanel({ employees, modelsReady, onLoggedIn, onCancel }) {
     if (!c) { setMsg('ไม่พบใบหน้า — ลองอีกครั้ง'); setBusy(false); return; }
     const best = matchBest(c.descriptor, employees);
     if (!best || best.distance > FACE_MATCH_THRESHOLD) { setMsg('ไม่พบในระบบ'); setBusy(false); return; }
+    if (best.margin < FACE_MARGIN_MIN) { setMsg('⚠️ หน้าใกล้เคียงหลายคน — ลองสแกนใหม่อีกครั้ง'); setBusy(false); return; }
     setCurrentUserSession(best.emp);
     setMsg('✓ สวัสดี ' + best.emp.name);
     setTimeout(() => { onLoggedIn && onLoggedIn(best.emp); }, 1000);
@@ -6227,6 +6244,9 @@ function LoginModal({ open, onClose }) {
 function App() {
   React.useEffect(() => {
     if (window.MKW_VIEW_ONLY) document.body.classList.add('mkw-view-only');
+    // โหลดโมเดลใบหน้าล่วงหน้า (background) เพื่อให้สแกนครั้งแรกเร็วขึ้น
+    const pre = setTimeout(() => { try { loadFaceApi().catch(() => {}); } catch (e) {} }, 1500);
+    return () => clearTimeout(pre);
   }, []);
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [period, setPeriod] = React.useState('year');
