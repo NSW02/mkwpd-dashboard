@@ -929,6 +929,7 @@
   /* Floating login button — mobile only (sidebar login is hidden on small screens) */
   .mob-login-fab { display: none; }
   .mob-pin-fab { display: none; }
+  .mob-logout-fab { display: none; }
 
   /* ─── Mobile breakpoints ─────────────────────── */
   @media (max-width: 1100px) {
@@ -964,6 +965,14 @@
       border-radius: 50%; font-size: 22px; color: #fff;
       background: linear-gradient(135deg, #10b981, #059669);
       box-shadow: 0 8px 22px rgba(16,185,129,0.45);
+    }
+    .mob-logout-fab {
+      display: flex; align-items: center; justify-content: center;
+      position: fixed; left: 14px; bottom: 144px; z-index: 60;
+      width: 50px; height: 50px; border: none; cursor: pointer;
+      border-radius: 50%; font-size: 22px; color: #fff;
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      box-shadow: 0 8px 22px rgba(244,63,94,0.45);
     }
     .row-grid, .row-grid-3, .cash-strip { gap: 12px; margin-bottom: 12px; }
     .kpi-grid { margin-bottom: 12px; }
@@ -6491,6 +6500,7 @@ function App() {
 
       {!currentUser && <button className="mob-login-fab" onClick={() => setLoginOpen(true)} title="เข้าระบบด้วยใบหน้า"><span className="fab-ic">🔓</span><span className="fab-tx">เข้าระบบ</span></button>}
       {currentUser && <button className="mob-pin-fab" onClick={() => setPinSetupOpen(true)} title="ตั้ง/เปลี่ยน PIN">🔑</button>}
+      {currentUser && <button className="mob-logout-fab" onClick={() => logoutCurrentUser()} title="ออกจากระบบ">🚪</button>}
       <MobileNav active={activeNav} onSelect={setActiveNav} />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       <PinSetupModal open={pinSetupOpen} currentUser={currentUser} onClose={() => setPinSetupOpen(false)} />
