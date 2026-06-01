@@ -4085,7 +4085,7 @@ function ClaimCard({ it, onUpdated, reload, compact }) {
           {it.reason && <div style={{ marginTop: 6, fontSize: 12.5 }}><span style={{ color: 'var(--muted)' }}>เหตุผล:</span> {it.reason}</div>}
           <div style={{ marginTop: 8, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
             {it.productUrl ? <a href={it.productUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--tamarind)' }}>🖼️ รูปสินค้า</a> : <span style={{ color: 'var(--faint)' }}>ไม่มีรูปสินค้า</span>}
-            {it.pendingUrl ? <a href={it.pendingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--honey)' }}>รูปสลิป/รออนุมัติ</a> : <span style={{ color: 'var(--faint)' }}>ยังไม่มีรูปสลิป/รออนุมัติ</span>}
+            {it.pendingUrl ? <a href={it.pendingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--honey)' }}>🧾 รูปสลิป/รออนุมัติ</a> : <span style={{ color: 'var(--faint)' }}>ยังไม่มีรูปสลิป/รออนุมัติ</span>}
           </div>
         </div>
         <div style={{ minWidth: 230, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -4119,7 +4119,7 @@ function ClaimCard({ it, onUpdated, reload, compact }) {
       {it.reason && <div style={{ marginTop: 8, fontSize: 12.5 }}><span style={{ color: 'var(--muted)' }}>เหตุผล:</span> {it.reason}</div>}
       <div style={{ marginTop: 10, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
         {it.productUrl ? <a href={it.productUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--tamarind)' }}>🖼️ รูปสินค้า</a> : <span style={{ color: 'var(--faint)' }}>ไม่มีรูปสินค้า</span>}
-        {it.pendingUrl ? <a href={it.pendingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--honey)' }}>รูปสลิป/รออนุมัติ</a> : <span style={{ color: 'var(--faint)' }}>ยังไม่มีรูปสลิป/รออนุมัติ</span>}
+        {it.pendingUrl ? <a href={it.pendingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--honey)' }}>🧾 รูปสลิป/รออนุมัติ</a> : <span style={{ color: 'var(--faint)' }}>ยังไม่มีรูปสลิป/รออนุมัติ</span>}
       </div>
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
         <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 6 }}>เปลี่ยนสถานะ (แนบรูปสลิป/รออนุมัติได้ — ไม่บังคับ)</div>
