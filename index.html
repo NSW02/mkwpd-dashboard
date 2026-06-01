@@ -4146,22 +4146,30 @@ function ClaimsList({ currentUser }) {
   const [q, setQ] = React.useState('');
   const [viewMode, setViewMode] = React.useState('month');
   const [selDate, setSelDate] = React.useState(new Date().toISOString().slice(0, 10));
+  const [selYear, setSelYear] = React.useState(new Date().getFullYear());
   const [viewStyle, setViewStyle] = React.useState(function () { try { return localStorage.getItem('mkw_claim_viewstyle') || 'card'; } catch (e) { return 'card'; } });
   const setVS = function (v) { setViewStyle(v); try { localStorage.setItem('mkw_claim_viewstyle', v); } catch (e) {} };
   async function load() {
     if (!CLAIMS_API) { setErr('ยังไม่ได้ตั้งค่า CLAIMS_API'); return; }
     setLoading(true); setErr(null);
-    try { const d = await claimsApi({ action: 'list', month }); if (!d.ok) throw new Error(d.error || 'โหลดไม่สำเร็จ'); setItems(d.items || []); }
+    try { const d = await claimsApi(viewMode === 'year' ? { action: 'list' } : { action: 'list', month }); if (!d.ok) throw new Error(d.error || 'โหลดไม่สำเร็จ'); setItems(d.items || []); }
     catch (e) { setErr(e.message); } finally { setLoading(false); }
   }
-  React.useEffect(() => { load(); }, [month]);
+  React.useEffect(() => { load(); }, [month, viewMode]);
   React.useEffect(function () { if (viewMode === 'day') { var mm = parseInt(selDate.split('-')[1], 10); if (mm && mm !== month) setMonth(mm); } }, [viewMode, selDate]);
   function onUpdated(key, patch) { setItems((arr) => arr.map((x) => x.key === key ? { ...x, ...patch } : x)); }
   const mine = (currentUser || '').trim();
   const qq = q.trim().toLowerCase();
+  const yearOpts = React.useMemo(function () {
+    var set = {};
+    items.forEach(function (it) { var pd = pRowDate(it.date); if (pd && pd.y) set[pd.y] = 1; });
+    var cy = new Date().getFullYear(); set[cy] = 1; set[cy + 1] = 1;
+    return Object.keys(set).map(Number).sort(function (a, b) { return b - a; });
+  }, [items]);
   const filtered = items.filter(function (it) {
     if (scope !== 'all' && (it.person || '').trim() !== mine) return false;
     if (viewMode === 'day') { var pd = pRowDate(it.date); var dp = selDate.split('-'); if (!pd || pd.y !== +dp[0] || pd.mo !== +dp[1] || pd.d !== +dp[2]) return false; }
+    if (viewMode === 'year') { var py = pRowDate(it.date); if (!py || py.y !== selYear) return false; }
     if (qq) { var hay = ((it.customer || '') + ' ' + (it.ref || '') + ' ' + (it.person || '') + ' ' + (it.account || '')).toLowerCase(); if (hay.indexOf(qq) < 0) return false; }
     return true;
   }).slice().reverse();
@@ -4180,10 +4188,13 @@ function ClaimsList({ currentUser }) {
         <span style={{ marginLeft: 6, display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <button className="btn" onClick={() => setViewMode('month')} style={{ padding: '6px 12px', fontSize: 12.5, border: 'none', borderRadius: 0, fontWeight: viewMode === 'month' ? 600 : 400, background: viewMode === 'month' ? 'var(--tamarind)' : 'var(--surface)', color: viewMode === 'month' ? '#fff' : 'var(--ink)' }}>ทั้งเดือน</button>
           <button className="btn" onClick={() => setViewMode('day')} style={{ padding: '6px 12px', fontSize: 12.5, border: 'none', borderRadius: 0, fontWeight: viewMode === 'day' ? 600 : 400, background: viewMode === 'day' ? 'var(--tamarind)' : 'var(--surface)', color: viewMode === 'day' ? '#fff' : 'var(--ink)' }}>รายวัน</button>
+          <button className="btn" onClick={() => setViewMode('year')} style={{ padding: '6px 12px', fontSize: 12.5, border: 'none', borderRadius: 0, fontWeight: viewMode === 'year' ? 600 : 400, background: viewMode === 'year' ? 'var(--tamarind)' : 'var(--surface)', color: viewMode === 'year' ? '#fff' : 'var(--ink)' }}>ทั้งปี</button>
         </span>
         {viewMode === 'month'
           ? (<select style={{ ...fInp, width: 'auto' }} value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10))}>{TH_MONTHS.map((nm, i) => i === 0 ? null : <option key={i} value={i}>{nm}</option>)}</select>)
-          : (<input type="date" style={{ ...fInp, width: 'auto' }} value={selDate} onChange={(e) => setSelDate(e.target.value)} />)}
+          : viewMode === 'day'
+          ? (<input type="date" style={{ ...fInp, width: 'auto' }} value={selDate} onChange={(e) => setSelDate(e.target.value)} />)
+          : (<select style={{ ...fInp, width: 'auto' }} value={selYear} onChange={(e) => setSelYear(parseInt(e.target.value, 10))}>{yearOpts.map((y) => <option key={y} value={y}>ปี {y}</option>)}</select>)}
         <input style={{ ...fInp, width: 230 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 ค้นหา ชื่อลูกค้า / เลขอ้างอิง" />
         <span style={{ marginLeft: 'auto', display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <button className="btn" onClick={() => setVS('card')} title="แบบกล่อง" style={{ padding: '6px 11px', fontSize: 13, border: 'none', borderRadius: 0, background: viewStyle === 'card' ? 'var(--tamarind)' : 'var(--surface)', color: viewStyle === 'card' ? '#fff' : 'var(--ink)' }}>▦ กล่อง</button>
