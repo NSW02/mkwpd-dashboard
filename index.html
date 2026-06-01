@@ -3096,9 +3096,9 @@ function ymd(d) {
   return y + '-' + m + '-' + day;
 }
 
-// ─── Identity session (120 minutes) ─────────────────────────
+// ─── Identity session (10 hours) ─────────────────────────
 const CURRENT_USER_KEY = 'mkw_current_user';
-const SESSION_TTL_MS = 120 * 60 * 1000;
+const SESSION_TTL_MS = 10 * 60 * 60 * 1000;
 
 function getCurrentUser() {
   try {
@@ -5793,7 +5793,7 @@ function FaceLoginPanel({ employees, modelsReady, onLoggedIn, onCancel }) {
       </div>
       <div className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
         <h3 style={{ margin: 0, color: '#064e3b' }}>🔓 เข้าระบบด้วยใบหน้า</h3>
-        <div style={{ color: 'var(--muted)', fontSize: 14 }}>หันหน้าเข้ากล้องแล้วกดสแกน — session จะ active 120 นาที</div>
+        <div style={{ color: 'var(--muted)', fontSize: 14 }}>หันหน้าเข้ากล้องแล้วกดสแกน — session จะ active 10 ชั่วโมง</div>
         <button onClick={scan} disabled={busy} style={{ padding: '20px', fontSize: 22, fontWeight: 700, borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: '#fff', cursor: busy ? 'wait' : 'pointer', boxShadow: '0 6px 20px rgba(14,165,233,0.3)' }}>
           {busy ? '⏳ กำลังสแกน...' : '👁 สแกนหน้า เข้าระบบ'}
         </button>
