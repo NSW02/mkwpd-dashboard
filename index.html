@@ -1659,7 +1659,8 @@ const EXPENSE_FIELDS = [
 const DEFAULT_JAN_2569 = {
   id: '2569-01',
   thaiName: 'มกราคม 2569',
-  channels: { tiktok: 14829437, shopee: 2810543, facebook: 1976984 },
+  channels: { tiktok: 14829437, shopee: 2810543, facebook: 1976984, commission: 148933 },
+  commissionSplit: { shopee: 4780, tiktok: 144153 },
   expenses: {
     fee_tiktok: 2632776, fee_shopee: 604406, ads: 1139420,
     packaging: 720964, claims: 403168, salary: 386630, shipping: 320471,
@@ -1704,7 +1705,8 @@ function blankMonth(thaiYear, monthIdx) {
   return {
     id,
     thaiName: `${THAI_MONTHS[monthIdx]} ${thaiYear}`,
-    channels: { tiktok: 0, shopee: 0, facebook: 0 },
+    channels: { tiktok: 0, shopee: 0, facebook: 0, commission: 0 },
+    commissionSplit: { shopee: 0, tiktok: 0 },
     expenses: { ...EMPTY_EXPENSES },
     cogs: 0,
     cogsRate: 0.28,
@@ -1716,7 +1718,7 @@ function blankMonth(thaiYear, monthIdx) {
 
 // ─── Derived totals from a month record ─────────────────────────
 function monthTotals(m) {
-  const revenue = (m.channels.tiktok || 0) + (m.channels.shopee || 0) + (m.channels.facebook || 0);
+  const revenue = (m.channels.tiktok || 0) + (m.channels.shopee || 0) + (m.channels.facebook || 0) + (m.channels.commission || 0);
   const opex = Object.values(m.expenses || {}).reduce((s, v) => s + (Number(v) || 0), 0);
   const cogs = (m.cogs && m.cogs > 0) ? Math.round(m.cogs) : Math.round(revenue * (m.cogsRate ?? 0.28));
   const profit = revenue - cogs - opex;
@@ -2156,13 +2158,14 @@ function genSeries(periodKey, activeMonth, prevMonth, allMonths) {
 // Aggregate all months of a given year into one synthetic month-like object
 function aggregateYear(months, year) {
   const yearMonths = months.filter(m => m.id.split('-')[0] === year);
-  const channels = { tiktok: 0, shopee: 0, facebook: 0 };
+  const channels = { tiktok: 0, shopee: 0, facebook: 0, commission: 0 };
   const expenses = {};
   let cogs = 0;
   for (const m of yearMonths) {
     channels.tiktok += m.channels.tiktok || 0;
     channels.shopee += m.channels.shopee || 0;
     channels.facebook += m.channels.facebook || 0;
+    channels.commission += m.channels.commission || 0;
     cogs += m.cogs || 0;
     for (const k of Object.keys(m.expenses || {})) {
       expenses[k] = (expenses[k] || 0) + (m.expenses[k] || 0);
@@ -2178,12 +2181,13 @@ function aggregateYear(months, year) {
 
 function channelsFromMonth(month) {
   const m = month || __S.DEFAULT_JAN_2569;
-  const total = (m.channels.tiktok || 0) + (m.channels.shopee || 0) + (m.channels.facebook || 0);
+  const total = (m.channels.tiktok || 0) + (m.channels.shopee || 0) + (m.channels.facebook || 0) + (m.channels.commission || 0);
   const safe = total || 1;
   return [
-    { key: 'tiktok',   name: 'TikTok Shop', short: 'TT', color: 'var(--ink)',      share: m.channels.tiktok / safe,   revenue: m.channels.tiktok || 0,   orders: null, aov: null },
-    { key: 'shopee',   name: 'Shopee',      short: 'SP', color: 'var(--honey)',    share: m.channels.shopee / safe,   revenue: m.channels.shopee || 0,   orders: null, aov: null },
-    { key: 'facebook', name: 'Facebook',    short: 'FB', color: 'var(--tamarind)', share: m.channels.facebook / safe, revenue: m.channels.facebook || 0, orders: null, aov: null },
+    { key: 'tiktok',     name: 'TikTok Shop',    short: 'TT', color: 'var(--ink)',      share: m.channels.tiktok / safe,     revenue: m.channels.tiktok || 0,     orders: null, aov: null },
+    { key: 'shopee',     name: 'Shopee',         short: 'SP', color: 'var(--honey)',    share: m.channels.shopee / safe,     revenue: m.channels.shopee || 0,     orders: null, aov: null },
+    { key: 'facebook',   name: 'Facebook',       short: 'FB', color: 'var(--tamarind)', share: m.channels.facebook / safe,   revenue: m.channels.facebook || 0,   orders: null, aov: null },
+    { key: 'commission', name: 'ค่าคอมมิชชั่น',   short: 'CM', color: 'var(--grape)',    share: (m.channels.commission || 0) / safe, revenue: m.channels.commission || 0, orders: null, aov: null },
   ];
 }
 
@@ -2409,7 +2413,7 @@ function ChannelDonut({ channels, size = 200, total }) {
       </svg>
       <div className="donut-center">
         <div className="v">฿{fmtBaht(total, true)}</div>
-        <div className="l">ยอดขายรวม</div>
+        <div className="l">รายได้รวม</div>
       </div>
     </div>
   );
@@ -2741,12 +2745,13 @@ function DataManagerModal({ open, mode, months, activeId, onClose, onSave, onDel
             {importMsg && <pre className="dm-importmsg">{importMsg}</pre>}
 
             <div className="dm-section-title" style={{ marginTop: 18 }}>
-              <span>② รายได้ (3 ช่องทาง)</span>
+              <span>② รายได้ (4 ช่องทาง)</span>
             </div>
-            <div className="dm-grid-3">
+            <div className="dm-grid-2">
               <NumField label="TikTok Shop" value={draft.channels.tiktok}    onChange={(v) => updField('channels.tiktok', v)} accent="var(--ink)" />
               <NumField label="Shopee"      value={draft.channels.shopee}    onChange={(v) => updField('channels.shopee', v)} accent="var(--honey)" />
               <NumField label="Facebook"    value={draft.channels.facebook}  onChange={(v) => updField('channels.facebook', v)} accent="var(--tamarind)" />
+              <NumField label="ค่าคอมมิชชั่น (Shopee+TikTok)" value={draft.channels.commission || 0} onChange={(v) => updField('channels.commission', v)} accent="var(--grape)" />
             </div>
             <div className="dm-totalbar">
               <span>รายได้รวม</span>
@@ -2839,7 +2844,9 @@ function DataManagerModal({ open, mode, months, activeId, onClose, onSave, onDel
                           m.expenses.cardfee || 0, m.expenses.interest || 0, m.expenses.utilities || 0,
                           m.expenses.rent || 0, m.expenses.welfare || 0, m.expenses.telecom || 0,
                           m.expenses.misc || 0,
-                          m.notes || ''
+                          m.notes || '',
+                          (m.commissionSplit && m.commissionSplit.shopee) || 0,
+                          (m.commissionSplit && m.commissionSplit.tiktok) || 0
                         ];
                         const tsv = cells.join('\t');
                         navigator.clipboard.writeText(tsv).then(() => {
@@ -2983,8 +2990,10 @@ async function fetchFinanceFromSheet() {
         channels: {
           tiktok: Number(r[2]) || 0,
           shopee: Number(r[3]) || 0,
-          facebook: Number(r[4]) || 0
+          facebook: Number(r[4]) || 0,
+          commission: (Number(r[22]) || 0) + (Number(r[23]) || 0)
         },
+        commissionSplit: { shopee: Number(r[22]) || 0, tiktok: Number(r[23]) || 0 },
         cogs: Number(r[5]) || 0,
         expenses: {
           fee_tiktok: Number(r[6]) || 0,
